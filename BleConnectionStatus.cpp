@@ -3,18 +3,11 @@
 BleConnectionStatus::BleConnectionStatus(void) {
 }
 
-void BleConnectionStatus::onConnect(BLEServer* pServer)
+void BleConnectionStatus::onConnect(BLEServer* pServer, esp_ble_gatts_cb_param_t *param)
 {
   this->connected = true;
   BLE2902* desc = (BLE2902*)this->inputMouse->getDescriptorByUUID(BLEUUID((uint16_t)0x2902));
   desc->setNotifications(true);
-}
-
-void BleConnectionStatus::onDisconnect(BLEServer* pServer)
-{
-  this->connected = false;
-  BLE2902* desc = (BLE2902*)this->inputMouse->getDescriptorByUUID(BLEUUID((uint16_t)0x2902));
-  desc->setNotifications(false);
   uint8_t* mac = param->connect.remote_bda;
   //char macStr[18];
   //sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -29,4 +22,12 @@ void BleConnectionStatus::onDisconnect(BLEServer* pServer)
   {
     macc[i] = mac[i];
   }
+}
+
+void BleConnectionStatus::onDisconnect(BLEServer* pServer)
+{
+  this->connected = false;
+  BLE2902* desc = (BLE2902*)this->inputMouse->getDescriptorByUUID(BLEUUID((uint16_t)0x2902));
+  desc->setNotifications(false);
+  
 }
