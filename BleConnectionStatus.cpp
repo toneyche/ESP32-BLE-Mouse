@@ -1,5 +1,5 @@
 #include "BleConnectionStatus.h"
-
+#include <Arduino.h>
 BleConnectionStatus::BleConnectionStatus(void) {
 }
 
