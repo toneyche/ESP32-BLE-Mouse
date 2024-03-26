@@ -9,8 +9,10 @@
 #include "sdkconfig.h"
 
 #include "BleConnectionStatus.h"
+#include <Arduino.h> // Include the necessary header file for the Serial object
 #include "BleMouse.h"
-
+#include <queue>
+std::queue<int8_t> rssiValues;  // 用于存储最近的10个RSSI值
 #if defined(CONFIG_ARDUHAL_ESP_LOG)
   #include "esp32-hal-log.h"
   #define LOG_TAG ""
@@ -137,7 +139,56 @@ void BleMouse::setBatteryLevel(uint8_t level) {
   if (hid != 0)
       this->hid->setBatteryLevel(this->batteryLevel);
 }
+void mygap_event_handler(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param)
+{
+  switch (event)
+  {
+    case ESP_GAP_BLE_READ_RSSI_COMPLETE_EVT:
+      if (param->read_rssi_cmpl.status == ESP_BT_STATUS_SUCCESS)
+      {
+        // 将新的RSSI值添加到队列中
+        rssiValues.push(param->read_rssi_cmpl.rssi);
 
+        // 如果队列中的元素超过10个，就移除最旧的元素
+        if (rssiValues.size() > 100)
+        {
+          rssiValues.pop();
+        }
+
+        // 计算队列中所有RSSI值的平均值
+        int sum = 0;
+        std::queue<int8_t> temp = rssiValues;
+        while (!temp.empty())
+        {
+          sum += temp.front();
+          temp.pop();
+        }
+        // Serial.print("sum: ");
+        // Serial.println(sum);
+
+        // Serial.print("size: ");
+        // Serial.println(rssiValues.size());
+        int averageRssi = sum / static_cast<int>(rssiValues.size());
+        
+        Serial.print("Average RSSI of device ");
+        // Print the MAC address of the device
+        for (int i = 0; i < 6; i++)
+        {
+          Serial.printf("%02X:", param->read_rssi_cmpl.remote_addr[i]);
+        }
+        // Print the average RSSI value
+        Serial.printf(" is %d\n", averageRssi);
+      }
+      else
+      {
+        Serial.println("Failed to read RSSI");
+      }
+      break;
+    // Handle other events
+    default:
+      break;
+  }
+}
 void BleMouse::taskServer(void* pvParameter) {
   BleMouse* bleMouseInstance = (BleMouse *) pvParameter; //static_cast<BleMouse *>(pvParameter);
   BLEDevice::init(bleMouseInstance->deviceName);
@@ -156,7 +207,7 @@ void BleMouse::taskServer(void* pvParameter) {
   BLESecurity *pSecurity = new BLESecurity();
 
   pSecurity->setAuthenticationMode(ESP_LE_AUTH_BOND);
-
+  esp_ble_gap_register_callback(mygap_event_handler);
   bleMouseInstance->hid->reportMap((uint8_t*)_hidReportDescriptor, sizeof(_hidReportDescriptor));
   bleMouseInstance->hid->startServices();
 
